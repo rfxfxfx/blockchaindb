@@ -9,16 +9,65 @@ const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"] });
 // WebGL canvas — client-only, never server-rendered.
 const Dither = dynamic(() => import("./Dither"), { ssr: false });
 
+// Frosted-glass pill matching the React Bits banner: dark→light gradient,
+// backdrop blur, hairline border, top sheen and a soft drop shadow.
+const glassStyle: React.CSSProperties = {
+  background:
+    "linear-gradient(105deg, rgba(8,8,10,0.82) 0%, rgba(26,26,30,0.5) 58%, rgba(72,72,80,0.32) 100%)",
+  backdropFilter: "blur(16px) saturate(1.3)",
+  WebkitBackdropFilter: "blur(16px) saturate(1.3)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  boxShadow:
+    "0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.16)",
+};
+
+function Glass({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`relative inline-flex items-center overflow-hidden rounded-[26px] ${className}`}
+      style={glassStyle}
+    >
+      {/* top glass sheen */}
+      <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/12 to-transparent" />
+      <span className="relative flex items-center gap-3">{children}</span>
+    </div>
+  );
+}
+
+function DbMark() {
+  return (
+    <svg
+      width="26"
+      height="26"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="white"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="shrink-0"
+    >
+      <ellipse cx="12" cy="6" rx="7.5" ry="3" />
+      <path d="M4.5 6v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3V6" />
+      <path d="M4.5 12v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3v-6" />
+    </svg>
+  );
+}
+
 /**
- * Full-screen animated dither cover shown at `/`. Light-mode, black & white,
- * auto-animating: the dither is rendered greyscale and CSS-inverted so it reads
- * as black dots on a light field. Title + "Enter" sit at the top; the Enter
- * button leads into the dashboard. Signed "0xrlawrence" bottom-right.
+ * Full-screen animated B&W dither cover shown at `/`. Every text sits in a
+ * React-Bits-style frosted-glass pill. The Enter pill leads into the dashboard.
  */
 export default function DitherCover() {
   return (
     <div className={`${display.className} fixed inset-0 overflow-hidden bg-white`}>
-      {/* animated black & white dither background (greyscale + invert = light mode) */}
+      {/* animated black & white dither (greyscale + invert = light field) */}
       <div className="absolute inset-0" style={{ filter: "invert(1)" }}>
         <Dither
           waveColor={[1, 1, 1]}
@@ -33,27 +82,38 @@ export default function DitherCover() {
         />
       </div>
 
-      {/* top content — dark text for the light background */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-5 px-6 pt-14 text-center sm:pt-20">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight text-black drop-shadow-[0_1px_16px_rgba(255,255,255,0.9)] sm:text-6xl">
+      {/* top glass pills */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-4 px-6 pt-14 sm:pt-20">
+        <Glass className="px-6 py-3.5">
+          <DbMark />
+          <span className="text-2xl font-bold tracking-tight text-white sm:text-4xl">
             BlockchainDB
-          </h1>
-          <p className="mt-2 text-sm font-medium text-black/70 drop-shadow-[0_1px_10px_rgba(255,255,255,0.95)] sm:text-base">
+          </span>
+        </Glass>
+
+        <Glass className="px-5 py-2.5">
+          <span className="text-sm font-medium text-white/85 sm:text-base">
             The blockchain is your database.
-          </p>
-        </div>
+          </span>
+        </Glass>
+
         <Link
           href="/dashboard"
-          className="pointer-events-auto rounded-full bg-black px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 sm:text-base"
+          className="pointer-events-auto transition-transform hover:scale-105"
         >
-          Enter →
+          <Glass className="px-7 py-3">
+            <span className="text-sm font-bold tracking-tight text-white sm:text-base">
+              Enter →
+            </span>
+          </Glass>
         </Link>
       </div>
 
       {/* signature */}
-      <div className="pointer-events-none absolute bottom-5 right-6 font-mono text-sm text-black/80 drop-shadow-[0_1px_8px_rgba(255,255,255,0.9)]">
-        0xrlawrence
+      <div className="absolute bottom-5 right-6">
+        <Glass className="px-4 py-2">
+          <span className="font-mono text-sm text-white/90">0xrlawrence</span>
+        </Glass>
       </div>
     </div>
   );

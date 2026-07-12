@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Guestbook — powered by BlockchainDB</title>
+    <style>
+      :root {
+        --bg: #0b0e14;
+        --panel: #12151d;
+        --border: #222735;
+        --ink: #e8ecf8;
+        --soft: #8b93ad;
+        --brand: #3ecf8e;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.5;
+      }
+      .wrap { max-width: 640px; margin: 0 auto; padding: 32px 20px 80px; }
+      h1 { font-size: 1.6rem; margin: 0 0 4px; }
+      p.sub { color: var(--soft); margin: 0 0 24px; }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        margin-bottom: 18px;
+      }
+      label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--soft); margin-bottom: 6px; }
+      input, textarea {
+        width: 100%;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        color: var(--ink);
+        padding: 10px 12px;
+        font: inherit;
+        outline: none;
+      }
+      input:focus, textarea:focus { border-color: var(--brand); }
+      .row { display: flex; gap: 10px; }
+      .row > * { flex: 1; }
+      button {
+        background: var(--brand);
+        color: #05231a;
+        border: 0;
+        border-radius: 9px;
+        padding: 10px 18px;
+        font-weight: 600;
+        font: inherit;
+        cursor: pointer;
+      }
+      button.ghost { background: transparent; color: var(--soft); border: 1px solid var(--border); }
+      button:disabled { opacity: 0.5; cursor: default; }
+      details.config summary { cursor: pointer; color: var(--soft); font-size: 0.85rem; }
+      .entry {
+        border: 1px solid var(--border);
+        border-radius: 11px;
+        padding: 14px;
+        margin-top: 10px;
+      }
+      .entry h3 { margin: 0 0 4px; font-size: 1rem; }
+      .entry .meta { color: var(--soft); font-size: 0.75rem; margin-top: 8px; display: flex; gap: 12px; align-items: center; }
+      .entry .meta a { color: var(--soft); cursor: pointer; }
+      .entry .meta a:hover { color: var(--ink); }
+      .status { font-size: 0.85rem; color: var(--soft); min-height: 1.2em; margin-top: 10px; }
+      .status.error { color: #f87171; }
+      .muted { color: var(--soft); }
+      code { background: var(--bg); padding: 1px 5px; border-radius: 5px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>📖 My Guestbook</h1>
+      <p class="sub">
+        A basic website with full CRUD — every entry is stored (and encrypted)
+        on-chain through your <strong>BlockchainDB</strong> instance.
+      </p>
+
+      <!-- Connection config -->
+      <div class="panel">
+        <details class="config">
+          <summary>⚙️ Connection settings</summary>
+          <div style="margin-top: 14px">
+            <label>BlockchainDB URL</label>
+            <input id="baseUrl" placeholder="http://localhost:3000" />
+            <div style="height: 12px"></div>
+            <label>API key (only if your instance requires one)</label>
+            <input id="apiKey" type="password" placeholder="bdb_…" />
+            <div style="height: 12px"></div>
+            <label>Collection</label>
+            <input id="collection" placeholder="guestbook" />
+            <div style="height: 14px"></div>
+            <button id="saveConfig">Save & connect</button>
+          </div>
+        </details>
+      </div>
+
+      <!-- Create -->
+      <div class="panel">
+        <label>Your name</label>
+        <input id="name" placeholder="Ada" />
+        <div style="height: 12px"></div>
+        <label>Message</label>
+        <textarea id="message" rows="2" placeholder="Loving this on-chain guestbook!"></textarea>
+        <div style="height: 14px"></div>
+        <button id="addBtn">Sign the guestbook</button>
+        <div id="createStatus" class="status"></div>
+      </div>
+
+      <!-- Read / list -->
+      <div class="panel">
+        <div class="row" style="align-items: center">
+          <strong>Entries</strong>
+          <div style="text-align: right; flex: 0">
+            <button class="ghost" id="refreshBtn">Refresh</button>
+          </div>
+        </div>
+        <div id="list"><p class="muted" style="margin: 12px 0 0">Loading…</p></div>
+      </div>
+    </div>
+
+    <script>
+      // --- tiny API client -------------------------------------------------
+      const cfg = {
+        baseUrl: localStorage.getItem("bdb_url") || "http://localhost:3000",
+        apiKey: localStorage.getItem("bdb_key") || "",
+        collection: localStorage.getItem("bdb_collection") || "guestbook",
+      };
+
+      function headers() {
+        const h = { "Content-Type": "application/json" };
+        if (cfg.apiKey) h["x-api-key"] = cfg.apiKey;
+        return h;
+      }
+
+      async function api(path, options = {}) {
+        const res = await fetch(cfg.baseUrl.replace(/\/$/, "") + path, {
+          ...options,
+          headers: headers(),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+        return body;
+      }
+
+      const db = {
+        list: () =>
+          api(`/api/list?collection=${encodeURIComponent(cfg.collection)}`).then(
+            (r) => r.documents || []
+          ),
+        create: (data) =>
+          api("/api/create", {
+            method: "POST",
+            body: JSON.stringify({ collection: cfg.collection, data }),
+          }),
+        update: (id, data) =>
+          api("/api/update", {
+            method: "POST",
+            body: JSON.stringify({ collection: cfg.collection, id, data }),
+          }),
+        remove: (id) =>
+          api("/api/delete", {
+            method: "POST",
+            body: JSON.stringify({ collection: cfg.collection, id }),
+          }),
+      };
+
+      // --- UI --------------------------------------------------------------
+      const $ = (id) => document.getElementById(id);
+
+      function hydrateConfig() {
+        $("baseUrl").value = cfg.baseUrl;
+        $("apiKey").value = cfg.apiKey;
+        $("collection").value = cfg.collection;
+      }
+
+      $("saveConfig").onclick = () => {
+        cfg.baseUrl = $("baseUrl").value.trim() || "http://localhost:3000";
+        cfg.apiKey = $("apiKey").value.trim();
+        cfg.collection = $("collection").value.trim() || "guestbook";
+        localStorage.setItem("bdb_url", cfg.baseUrl);
+        localStorage.setItem("bdb_key", cfg.apiKey);
+        localStorage.setItem("bdb_collection", cfg.collection);
+        load();
+      };
+
+      $("addBtn").onclick = async () => {
+        const name = $("name").value.trim();
+        const message = $("message").value.trim();
+        if (!name || !message) {
+          setStatus("createStatus", "Enter a name and a message.", true);
+          return;
+        }
+        setStatus("createStatus", "Signing… (waiting for the transaction)");
+        $("addBtn").disabled = true;
+        try {
+          await db.create({ name, message, at: new Date().toISOString() });
+          $("name").value = "";
+          $("message").value = "";
+          setStatus("createStatus", "✓ Added on-chain!");
+          load();
+        } catch (e) {
+          setStatus("createStatus", e.message, true);
+        } finally {
+          $("addBtn").disabled = false;
+        }
+      };
+
+      $("refreshBtn").onclick = load;
+
+      function setStatus(id, text, isError) {
+        const el = $(id);
+        el.textContent = text;
+        el.className = "status" + (isError ? " error" : "");
+      }
+
+      async function editEntry(doc) {
+        const message = prompt("Edit message:", doc.data.message ?? "");
+        if (message === null) return;
+        try {
+          await db.update(doc.id, { ...doc.data, message });
+          load();
+        } catch (e) {
+          alert(e.message);
+        }
+      }
+
+      async function deleteEntry(doc) {
+        if (!confirm("Delete this entry?")) return;
+        try {
+          await db.remove(doc.id);
+          load();
+        } catch (e) {
+          alert(e.message);
+        }
+      }
+
+      function render(entries) {
+        const list = $("list");
+        if (!entries.length) {
+          list.innerHTML =
+            '<p class="muted" style="margin:12px 0 0">No entries yet — be the first to sign!</p>';
+          return;
+        }
+        list.innerHTML = "";
+        entries
+          .slice()
+          .reverse()
+          .forEach((doc) => {
+            const d = doc.data || {};
+            const el = document.createElement("div");
+            el.className = "entry";
+            el.innerHTML = `
+              <h3></h3>
+              <div class="body"></div>
+              <div class="meta">
+                <span>#${doc.id}</span>
+                <span class="when"></span>
+                <a class="edit">Edit</a>
+                <a class="del">Delete</a>
+              </div>`;
+            el.querySelector("h3").textContent = d.name || "(anonymous)";
+            el.querySelector(".body").textContent = d.message || "";
+            el.querySelector(".when").textContent = d.at
+              ? new Date(d.at).toLocaleString()
+              : "";
+            el.querySelector(".edit").onclick = () => editEntry(doc);
+            el.querySelector(".del").onclick = () => deleteEntry(doc);
+            list.appendChild(el);
+          });
+      }
+
+      async function load() {
+        $("list").innerHTML =
+          '<p class="muted" style="margin:12px 0 0">Loading…</p>';
+        try {
+          render(await db.list());
+        } catch (e) {
+          $("list").innerHTML = `<p class="status error" style="margin:12px 0 0">${e.message}</p>
+            <p class="muted" style="font-size:.85rem">Check the connection settings above. If your instance requires an API key, add it there.</p>`;
+        }
+      }
+
+      hydrateConfig();
+      load();
+    </script>
+  </body>
+</html>

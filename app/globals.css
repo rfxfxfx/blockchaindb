@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* scroll-world landing theme (crypto dark) — read by public/scroll-world/scrub-engine.js.
+   Must target .sw-root itself (unlayered) to beat the engine's @layer defaults. */
+:root,
+.sw-root {
+  --sw-bg: #070b14;
+  --sw-ink: #e8ecf8;
+  --sw-ink-soft: #8b93ad;
+  --sw-accent: #8b5cf6;
+  --sw-font-display: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Tailwind's preflight (unlayered) resets h2/ul, which out-cascades the engine's
+   @layer sw typography — restore the landing headline + tag styles explicitly. */
+.sw-root .sw-copy__title {
+  font-family: var(--sw-font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4.4vw, 3.5rem);
+  line-height: 1.03;
+  letter-spacing: -0.01em;
+  margin: 12px 0 0;
+}
+.sw-root .sw-copy__tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 24px 0 0;
+  padding: 0;
+}
+@media (max-width: 860px) {
+  .sw-root .sw-copy__title {
+    font-size: clamp(1.9rem, 7.5vw, 2.7rem);
+  }
+}
+
+html {
+  background: #070b14;
+}
+
+body {
+  color: #e8ecf8;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Landing-page chrome overrides: the engine's defaults assume a light page. */
+.sw-root .sw-nav {
+  background: rgba(13, 17, 28, 0.55);
+  border-color: rgba(139, 92, 246, 0.22);
+}
+.sw-root .sw-topcta {
+  background: var(--sw-accent);
+}
+.sw-root .sw-btn--primary {
+  background: var(--sw-accent);
+}
+.sw-root .sw-copy__tags li {
+  background: rgba(139, 92, 246, 0.14);
+  color: #cdb6ff;
+}
+.sw-root .sw-route__label {
+  background: rgba(13, 17, 28, 0.85);
+  color: #e8ecf8;
+}
+
+/* Dashboard scrollbars */
+.app-shell ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.app-shell ::-webkit-scrollbar-thumb {
+  background: #222735;
+  border-radius: 6px;
+}
+.app-shell ::-webkit-scrollbar-track {
+  background: transparent;
+}

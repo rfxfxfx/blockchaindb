@@ -1,0 +1,255 @@
+# BlockchainDB
+
+**A self-hosted blockchain database with a Supabase-like dashboard.**
+
+> The blockchain is your database.
+
+Clone the repo, deploy one smart contract, open `localhost:3000`, and manage your
+blockchain database from a beautiful dashboard. Your data lives inside a smart
+contract — collections of JSON documents with auto-incrementing IDs — on a
+**real EVM network** of your choice. Default: **Polygon Amoy** testnet; switch
+to any preset testnet/mainnet (or a custom RPC) from the Settings page. No
+Solidity knowledge required.
+
+## Deploy your own
+
+> Replace `YOUR_GH_USERNAME/blockchaindb` with your repo, then use these buttons
+> (they're also on the in-app **API** page):
+
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_GH_USERNAME/blockchaindb&env=RPC_URL,PRIVATE_KEY,CONTRACT_ADDRESS,API_KEY)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/YOUR_GH_USERNAME/blockchaindb)
+
+Set `RPC_URL`, `PRIVATE_KEY`, `CONTRACT_ADDRESS`, and (optional) `API_KEY` when
+the host prompts. **Note:** serverless hosts (Vercel/Netlify) have a read-only
+filesystem, so the in-app Settings/Deploy/API-key writes don't persist there —
+configure via the host's environment variables instead (deploy your contract
+locally first with `npm run deploy`, then set `CONTRACT_ADDRESS`). The API and
+dashboard read from env vars and work fully.
+
+## Tech Stack
+
+| Layer | Tech |
+| --- | --- |
+| Frontend | Next.js 15 · TypeScript · App Router · Tailwind CSS |
+| Blockchain | Solidity · solc · ethers.js v6 |
+| Storage | One smart contract (`contracts/Database.sol`) |
+| Network | Polygon Amoy (default) · Ethereum, Polygon, Base, Arbitrum, OP, BNB, Avalanche (testnet + mainnet) · any custom EVM RPC |
+| Package manager | npm |
+
+## Quick Start (the 5-minute tutorial)
+
+**Step 1 — Clone the repository.**
+
+```bash
+git clone <this-repo> && cd blockchaindb
+```
+
+**Step 2 — Install dependencies.**
+
+```bash
+npm install
+```
+
+**Step 3 — Start the app.**
+
+```bash
+npm run dev
+```
+
+Open <http://localhost:3000> — the app connects to **Polygon Amoy** by default.
+
+**Step 4 — Open ⚙️ Settings** and:
+1. Pick a network (testnet/mainnet tabs, or a custom RPC). Amoy is preselected.
+2. Paste a **wallet private key** funded on that network. For Amoy, grab free
+   test POL from the faucet linked right there in Settings.
+3. Click **Deploy Database.sol** — the contract deploys from your wallet and
+   the address is filled in and saved automatically.
+
+*(Prefer the CLI? Set `RPC_URL` + `PRIVATE_KEY` in `.env.local` and run
+`npm run deploy` — it deploys and writes `CONTRACT_ADDRESS` back for you.)*
+
+**Step 5 — Create your first collection.** e.g. `Users`.
+
+**Step 6 — Create your first document.**
+
+```json
+{
+  "name": "Alice",
+  "age": 20
+}
+```
+
+**Step 7 — View, edit, delete, and browse** your blockchain database from the
+dashboard. Every save is a transaction on the real chain; every read comes
+straight off it.
+
+## Networks
+
+Preset chains, selectable in Settings (Polygon Amoy is always the default):
+
+- **Testnets:** Polygon Amoy · Ethereum Sepolia · Base Sepolia · Arbitrum
+  Sepolia · OP Sepolia · BNB Testnet · Avalanche Fuji — each with a faucet link
+- **Mainnets:** Polygon · Ethereum · Base · Arbitrum One · OP Mainnet ·
+  BNB Chain · Avalanche C-Chain (with a "real funds" warning)
+- **Custom RPC:** any other EVM-compatible endpoint
+
+Contract addresses are per-network: switching chains means deploying (or
+pasting) a Database contract on that chain.
+
+## Dashboard
+
+- 🏠 **Dashboard** — stats (collections, documents, network, contract, latest tx, status) and recent documents
+- 📁 **Collections** — browse and create collections
+- 📄 **Documents** — data table + JSON document editor (create / edit / delete)
+- 🌐 **Network** — chain, block height, RPC, wallet, balance, testnet/mainnet, faucet, explorer
+- 📜 **Smart Contract** — address, owner, current block, full interface
+- ⚙️ **Settings** — network picker, wallet key, contract address, one-click deploy → saved to `.env.local`
+
+## Data Model
+
+```
+Database → Collections → Documents → fields (encrypted on-chain)
+```
+
+Every document gets an auto-incrementing ID (starting at 1) plus
+`createdAt` / `updatedAt` timestamps from the block. You build documents with a
+**Supabase-style field editor** (plain-text fields with a Text / Number /
+Boolean type — no JSON to hand-write). A "raw JSON" toggle is there for nested
+data and power users.
+
+## Encryption (private by default)
+
+A public blockchain means anyone can read transaction data. BlockchainDB
+**encrypts every document payload before it's written on-chain** with
+AES-256-GCM, keyed from your wallet's private key — so the ledger only stores an
+opaque blob and **only the key owner can read it back**.
+
+```
+on-chain value:  enc:v1:<base64( iv | authTag | ciphertext )>
+```
+
+- The key is derived from `PRIVATE_KEY` (scrypt); it never leaves the server and
+  is never sent to the browser. A read-only viewer without the key sees only
+  ciphertext.
+- Documents written before encryption (or by other tools) stay readable —
+  anything without the `enc:v1:` prefix is treated as plaintext.
+- **Note:** this is real *encryption*, not a hash. A SHA-256 hash is one-way and
+  could never be read back; AES-GCM is reversible with the key and also detects
+  tampering.
+- Because the key comes from your wallet key, **rotating your wallet makes older
+  encrypted documents unreadable.** Keep the key that wrote the data.
+
+Collection *names* are still stored as plaintext labels (they're schema, like
+table names); if you need those hidden too, use opaque names.
+
+## CRUD API
+
+| Endpoint | Method | Body / query |
+| --- | --- | --- |
+| `/api/create` | POST | `{ "collection": "users", "data": { … } }` |
+| `/api/get` | GET | `?collection=users&id=1` |
+| `/api/update` | POST | `{ "collection": "users", "id": 1, "data": { … } }` |
+| `/api/delete` | POST | `{ "collection": "users", "id": 1 }` |
+| `/api/list` | GET | `?collection=users` |
+| `/api/collections` | GET / POST | — / `{ "name": "users" }` |
+| `/api/health` | GET | safe public status (network, contract, counts) |
+| `/api/status` | GET | full snapshot incl. wallet/balance (dashboard) |
+| `/api/deploy` | POST | `{ "confirm": true }` — deploy (dashboard only) |
+
+All data endpoints accept an optional `x-api-key` header (see
+[Using it as an API](#using-it-as-an-api-back-any-website)) and send CORS
+headers. `/api/settings`, `/api/deploy`, `/api/apikey` are dashboard-only.
+
+## Using it as an API (back any website)
+
+BlockchainDB is a REST API you can point a real website or server at.
+
+1. **CORS is enabled** on all data endpoints, so a browser app on any origin can
+   call them.
+2. **Auth is an optional API key.** With no key set the API is *open* (fine for
+   local dev). Generate a key from the dashboard's **API** page (or set
+   `API_KEY` in `.env.local`) and every external call must then send it:
+
+   ```
+   x-api-key: bdb_…            (or)   Authorization: Bearer bdb_…
+   ```
+
+   The dashboard itself never needs the key (it's recognised as same-origin).
+   Admin endpoints (`/api/settings`, `/api/deploy`, `/api/apikey`) are always
+   dashboard-only.
+3. **Deploy** this Next.js app anywhere (Vercel, a VPS, …) and use that public
+   URL as your API base.
+
+Minimal client:
+
+```js
+const BASE = "https://your-instance.example.com";
+const KEY  = "bdb_…"; // omit the header if your instance is open
+
+const db = (path, opts = {}) =>
+  fetch(BASE + path, {
+    ...opts,
+    headers: { "Content-Type": "application/json", "x-api-key": KEY },
+  }).then((r) => r.json());
+
+await db("/api/create", {
+  method: "POST",
+  body: JSON.stringify({ collection: "guestbook", data: { name: "Ada", message: "hi" } }),
+});
+const { documents } = await db("/api/list?collection=guestbook");
+```
+
+A complete, ready-to-open example — a guestbook website with full CRUD — is in
+[`examples/basic-crud-site.html`](examples/basic-crud-site.html). Open it in a
+browser, point it at your instance (and paste an API key if it needs one), and
+it works. `GET /api/health` returns a safe status (network, contract, counts)
+for consumers to check.
+
+> Reads return **decrypted** data, so protect the API with a key before exposing
+> it — otherwise anyone who can reach it can read your plaintext and spend your
+> wallet's gas on writes.
+
+## SDK
+
+`lib/database.ts` exports the same operations as a TypeScript class (used by
+the API routes; usable from any server-side code):
+
+```ts
+const db = new BlockchainDB();
+
+const { id } = await db.create("users", { name: "John", age: 25 });
+await db.get("users", id);
+await db.update("users", id, { age: 26 });
+await db.list("users");
+await db.delete("users", id);
+```
+
+## Smart Contract
+
+One contract only: `contracts/Database.sol`, with `create`, `get`, `update`,
+`remove` (delete is a reserved word in Solidity), `list`, plus
+`createCollection`, `listCollections` and `totalDocuments` for the dashboard.
+Writes are `onlyOwner` — the wallet that deployed it owns the database.
+
+The compiled artifact ships in `abi/Database.json`. If you edit the contract,
+recompile with `npm run compile` (plain solc — no framework) and redeploy.
+
+## Environment Variables
+
+```
+RPC_URL=            # defaults to https://rpc-amoy.polygon.technology
+PRIVATE_KEY=        # wallet that owns the contract (signs every write)
+CONTRACT_ADDRESS=   # filled by deploy (Settings button or npm run deploy)
+```
+
+All three are managed for you by the Settings page.
+
+## Landing page
+
+The `/` route is a scroll-scrubbed "fly through the crypto world" cinematic
+built with [scroll-world](https://github.com/0xrlawrence/scroll-world): scroll
+drives a pre-rendered camera flight through five isometric crypto scenes
+(the chain → consensus → smart contracts → the vault → the studio) with
+frame-identical seams. The scrub engine is `public/scroll-world/scrub-engine.js`;
+scene clips and stills live in `public/scroll-world/assets/`; the generator
+pipeline is in `tools/landing-gen/`.

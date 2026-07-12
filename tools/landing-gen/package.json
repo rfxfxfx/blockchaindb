@@ -1,0 +1,15 @@
+{
+  "name": "landing-gen",
+  "private": true,
+  "description": "Regenerates the scroll-world landing assets (crypto world panorama + camera-flight clips).",
+  "scripts": {
+    "world": "node gen-world.js",
+    "raster": "node -e \"const s=require('sharp');Promise.all([s('world.svg',{density:72}).resize(9600,3600).png().toFile('world.png'),s('bg.svg',{density:72}).resize(4800,1800).png().toFile('bg.png')]).then(()=>console.log('rasterized'))\"",
+    "render": "node render-flight.js",
+    "install-assets": "cp out/*.webp ../../public/scroll-world/assets/ && cp out/*.mp4 ../../public/scroll-world/assets/vid/",
+    "all": "npm run world && npm run raster && npm run render && npm run install-assets"
+  },
+  "dependencies": {
+    "sharp": "^0.33.0"
+  }
+}

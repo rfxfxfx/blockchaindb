@@ -1,0 +1,71 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getConfig, DEFAULT_RPC_URL } from "@/lib/config";
+import { persistEnv } from "@/lib/env";
+import { requireDashboard } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+
+/** GET /api/settings — current values; the private key is only reported as set/unset. */
+export async function GET(req: NextRequest) {
+  const blocked = requireDashboard(req);
+  if (blocked) return blocked;
+  const config = getConfig();
+  return NextResponse.json({
+    rpcUrl: config.rpcUrl,
+    contractAddress: config.contractAddress,
+    privateKeySet: Boolean(config.privateKey),
+    defaultRpcUrl: DEFAULT_RPC_URL,
+  });
+}
+
+/**
+ * POST /api/settings
+ * { "rpcUrl"?: string, "privateKey"?: string, "contractAddress"?: string }
+ * Persists to .env.local; omitted fields keep their current value,
+ * empty strings clear the value.
+ */
+export async function POST(req: NextRequest) {
+  const blocked = requireDashboard(req);
+  if (blocked) return blocked;
+  try {
+    const body = await req.json();
+    const rpcUrl = typeof body?.rpcUrl === "string" ? body.rpcUrl : undefined;
+    const privateKey =
+      typeof body?.privateKey === "string" ? body.privateKey : undefined;
+    const contractAddress =
+      typeof body?.contractAddress === "string"
+        ? body.contractAddress
+        : undefined;
+
+    if (
+      contractAddress?.trim() &&
+      !/^0x[0-9a-fA-F]{40}$/.test(contractAddress.trim())
+    ) {
+      return NextResponse.json(
+        { error: "`contractAddress` must be a 0x-prefixed 40-hex-char address" },
+        { status: 400 }
+      );
+    }
+    if (
+      privateKey?.trim() &&
+      !/^(0x)?[0-9a-fA-F]{64}$/.test(privateKey.trim())
+    ) {
+      return NextResponse.json(
+        { error: "`privateKey` must be a 64-hex-char key (0x prefix optional)" },
+        { status: 400 }
+      );
+    }
+    if (rpcUrl?.trim() && !/^https?:\/\/[^\s]+$/.test(rpcUrl.trim())) {
+      return NextResponse.json(
+        { error: "`rpcUrl` must be an http(s) URL with no spaces" },
+        { status: 400 }
+      );
+    }
+
+    await persistEnv({ rpcUrl, privateKey, contractAddress });
+    return NextResponse.json({ saved: true, path: ".env.local" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "save failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

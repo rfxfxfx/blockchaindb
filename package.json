@@ -1,0 +1,30 @@
+{
+  "name": "blockchaindb",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A self-hosted blockchain database with a Supabase-like dashboard. The blockchain is your database.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "compile": "node scripts/compile.mjs",
+    "deploy": "node scripts/deploy.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.4",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "solc": "0.8.24",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.0"
+  }
+}

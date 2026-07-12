@@ -99,7 +99,7 @@ export default function DitherCover() {
 
         <Glass className="px-5 py-2.5">
           <span
-            className="text-sm font-medium text-white sm:text-base"
+            className="text-sm font-medium !text-white sm:text-[1.05rem]"
             style={{ textShadow }}
           >
             The blockchain is your database.
@@ -112,7 +112,7 @@ export default function DitherCover() {
         >
           <Glass className="px-7 py-3">
             <span
-              className="text-sm font-bold tracking-tight text-white sm:text-base"
+              className="text-sm font-bold tracking-tight !text-white sm:text-[1rem]"
               style={{ textShadow }}
             >
               Enter →
